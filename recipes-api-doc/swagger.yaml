@@ -1,0 +1,433 @@
+openapi: "3.0.0"
+
+info:
+  version: "1.0"
+  title: Recipe Search API Documentation
+  description: |-
+    The Recipe Search API allows searching through millions of web recipes.
+  
+servers:
+  - url: https://api.edamam.com/api
+    description: Production server
+
+tags:
+  - name: Recipe Search
+  - name: Specific Recipe Info
+  - name: Lookup Recipes by URI
+
+paths:
+  /recipes/v2:
+    get:
+      tags: 
+        - Recipe Search
+      summary: Search for a recipe
+      description: |-
+        This endpoint returns a list of recipes matching the provided criteria.
+      operationId: searchRecipe
+      parameters:
+        - $ref: '#/components/parameters/appIdParam'
+        
+        - $ref: '#/components/parameters/appKeyParam'
+        
+        - $ref: '#/components/parameters/typeParam'
+        
+        - name: q
+          in: query
+          description: |- 
+            Query text, for example "broccoli".
+            - **REQUIRED** if no other parameter is specified. 
+            - **NOT REQUIRED** if any other parameter (other than application credentials) is specified.
+          required: false
+          schema:
+            type: string
+            example: "broccoli"
+        
+        - name: ingr
+          in: query
+          description: |- 
+            Filter by number of ingredients (MIN+, MIN-MAX, MAX), where MIN and MAX are integer numbers.
+          required: false
+          schema:
+            type: string
+            pattern: '^\d+((\+)|(\-\d+))?$'
+          example: 5-8
+
+        - name: cuisineType
+          in: query
+          description: |- 
+            The type of cuisine of the recipe.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [American, Asian, British, Caribbean, Central Europe, Chinese, Eastern Europe, French, Indian, Italian, Japanese, Kosher, Mediterranean, Mexican, Middle Eastern, Nordic, South American, South East Asian]
+
+        - name: mealType
+          in: query
+          description: |- 
+            The type of meal a recipe belongs to.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [Breakfast, Dinner, Lunch, Snack, Teatime]
+
+        - name: dishType
+          in: query
+          description: |- 
+            The type of dish a recipe belongs to.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [Biscuits and cookies, Bread, Cereals, Condiments and sauces, Desserts, Drinks, Main course, Pancake, Preps, Preserve, Salad, Sandwiches, Side dish, Soup, Starter, Sweets]
+
+        - name: diet
+          in: query
+          description: |- 
+            Filter by diet label.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [balanced, high-fiber, high-protein, low-carb, low-fat, low-sodium]
+        
+        - name: health
+          in: query
+          description: |- 
+            Filter by health label.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string 
+              enum: [alcohol-cocktail, alcohol-free, celery-free, crustacean-free, dairy-free, DASH, egg-free, fish-free, fodmap-free, gluten-free, immuno-supportive, keto-friendly, kidney-friendly, kosher, low-fat-abs, low-potassium, low-sugar, lupine-free, Mediterranean, mollusk-free, mustard-free, no-oil-added, paleo, peanut-free, pescatarian, pork-free, red-meat-free, sesame-free, shellfish-free, soy-free, sugar-conscious, sulfite-free, tree-nut-free, vegan, vegetarian, wheat-free]
+        
+        - name: calories
+          in: query
+          description: |- 
+            The format is calories=_RANGE_ where _RANGE_ is in one of MIN+, MIN-MAX or MAX, where MIN and MAX are non-negative floating point numbers. The + symbol needs to be properly encoded. 
+            _Example_: “calories=100-300” will return all recipes with which have between 100 and 300 kcal per serving.
+          required: false
+          schema:
+            type: string
+            pattern: '^([0-9]*\.?[0-9]*)((\+)|(\-[0-9]*\.?[0-9]))?$'
+      
+        - name: random
+          in: query
+          description: |- 
+            Select whether you want this query to respond with a random selection of 20 recipes based on the criteria filled. 
+            If there were only 20 or less possible results, this will return those results in random order.
+          required: false
+          schema:
+            type: boolean 
+            
+        - name: tag
+          in: query
+          description: |- 
+            Show only recipes containing the specified tags.
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+      
+        - $ref: '#/components/parameters/acceptLanguageParam'
+        
+        - $ref: '#/components/parameters/fieldParam'
+      
+      responses:
+        200:
+          $ref: '#/components/responses/200RecipesListResponse'
+        
+        400:
+          $ref: '#/components/responses/ErrorResponse'
+        
+        403:
+          $ref: '#/components/responses/ErrorResponse'
+        
+  /recipes/v2/{id}:
+    get:
+      tags: 
+        - Specific Recipe Info
+      summary: Lookup a specific recipe by ID.
+      description: |-
+        Returns the nutritional information for given recipe. These requests are constructed automatically and can be found in `hits[]._links.self.href`.
+      operationId: specificRecipeInfo
+      parameters:
+        - name: id
+          in: path
+          description: |-
+            The recipe ID
+          required: true
+          schema:
+            type: string
+
+
+        - $ref: '#/components/parameters/appIdParam'
+        
+        - $ref: '#/components/parameters/appKeyParam'
+
+        - $ref: '#/components/parameters/fieldParam'
+        
+        - $ref: '#/components/parameters/acceptLanguageParam'
+
+      responses:
+        200:
+          description: |-
+            Recipe info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  recipe:
+                    $ref: '#/components/schemas/Recipe'
+        
+        400:
+          $ref: '#/components/responses/ErrorResponse'
+        
+        403:
+          $ref: '#/components/responses/ErrorResponse'
+        
+        404:
+          $ref: '#/components/responses/ErrorResponse'
+
+  /recipes/v2/by-uri:
+    get:
+      tags:
+        - Lookup Recipes by URI
+      summary: Lookup Recipe(s) by URI(s)
+      description: |-
+        Search for recipes by their URI. 
+        
+        Note, that the API response doesn't directly indicate if there are missing recipes. 
+        Instead, you need to compare he URIs to see if any are missing.
+      operationId: recipesByUri
+      parameters:
+        - $ref: '#/components/parameters/appIdParam'
+        
+        - $ref: '#/components/parameters/appKeyParam'
+        
+        - $ref: '#/components/parameters/typeParam'
+
+        - name: uri
+          in: query
+          description: |-
+            Recipe URIs
+          required: false
+          schema:
+            type: array
+            items:
+              type: string
+
+        - $ref: '#/components/parameters/acceptLanguageParam'
+        
+        - $ref: '#/components/parameters/fieldParam'
+
+      responses:
+        200:
+          $ref: '#/components/responses/200RecipesListResponse'
+
+        400:
+          $ref: '#/components/responses/ErrorResponse'
+        
+        403:
+          $ref: '#/components/responses/ErrorResponse'
+        
+components:
+  parameters:
+    appIdParam:
+      name: app_id
+      in: query
+      description: |-
+        The application ID, obtained from [the account dashboard](https://developer.edamam.com/admin/applications).
+      required: true
+      schema: 
+        type: string
+    appKeyParam:
+      name: app_key
+      in: query
+      description: |-
+        The application key, obtained from [the account dashboard](https://developer.edamam.com/admin/applications).
+      required: true
+      schema: 
+        type: string
+    typeParam:
+      name: type
+      in: query
+      description: |- 
+        Type of recipes to search for.
+      required: true
+      schema:
+        type: string
+        enum: [public, user, any]
+      example: public
+    fieldParam:
+      name: field 
+      in: query
+      description: |- 
+        Recipe fields to be included in the response.
+      required: false
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [uri, label, image, images, source, url, shareAs, yield, dietLabels, healthLabels, cautions, ingredientLines, ingredients, calories, glycemicIndex, inflammatoryIndex, totalCO2Emissions, co2EmissionsClass, totalWeight, totalTime, cuisineType, mealType, dishType, totalNutrients, totalDaily, digest, tags, externalId]
+    acceptLanguageParam:
+      name: Accept-Language
+      in: query
+      description: |- 
+        Search recipes in the specified language.
+      required: false
+      schema:
+        type: string
+        default: en 
+
+  schemas:
+    ImageInfo:
+      type: object
+      properties:
+        url:
+          type: string
+        width:
+          type: string
+        height:
+          type: string
+
+    Image: 
+      type: object
+      properties:
+        THUMBNAIL:
+          $ref: '#/components/schemas/ImageInfo'
+        SMALL:
+          $ref: '#/components/schemas/ImageInfo'
+        REGULAR:
+          $ref: '#/components/schemas/ImageInfo'
+        LARGE:
+          $ref: '#/components/schemas/ImageInfo'
+    
+    Ingredient:
+      type: object
+      properties:
+        text:
+          type: string
+        quantity:
+          type: number
+        measure:
+          type: string
+        food:
+          type: string
+        weight:
+          type: number
+        foodId:
+          type: string
+
+    Recipe:
+      type: object
+      properties:
+        uri:
+          type: string
+        label:
+          type: string
+        image:
+          type: string
+        images:
+          $ref: '#/components/schemas/Image'
+        source:
+          type: string
+        url:
+          type: string
+        shareAs:
+          type: string
+        yield:
+          type: number
+        dietLabels:
+          type: array
+          items:
+            type: string
+        healthLabels:
+          type: array
+          items:
+            type: string
+        ingredientLines:
+          type: array
+          items:
+            type: string
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ingredient'
+        calories:
+          type: number
+        cuisineType:
+          type: array
+          items:
+            type: string
+        mealType:
+          type: array
+          items:
+            type: string
+        dishType:
+          type: array
+          items:
+            type: string
+        instructions:
+          type: array
+          items:
+            type: string
+        tags:
+          type: array
+          items:
+            type: string
+        externalId:
+          type: string
+    
+    Error:
+      properties:
+        errorCode:
+          type: string
+        message:
+          type: string
+        params:
+          type: array
+          items:
+            type: string
+
+  responses:
+    200RecipesListResponse:
+      description: A list of recipes.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              from: 
+                type: integer
+              to: 
+                type: integer
+              count: 
+                type: integer
+              hits:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Recipe'
+    
+    ErrorResponse:
+      description: A list of errors
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Error'
+
+externalDocs:
+  description: |-
+    Find original doc here.
+  url: "https://developer.edamam.com/edamam-docs-recipe-api"
+      
